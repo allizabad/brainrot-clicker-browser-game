@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brainrot Clicker: Aura Prices 💀</title>
+    <style>
+        :root { --aura-color: #ffffff4d; --aura-shadow: 0 0 20px #fff; }
+        body {
+            background: radial-gradient(circle, #111, #000);
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: white; font-family: 'Arial Black', sans-serif;
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0;
+            overflow: hidden; /* Evita scroll por causa das partículas */
+        }
+        #game-container {
+            background: rgba(20,20,20,0.8); backdrop-filter: blur(10px);
+            padding: 20px; border-radius: 30px; border: 2px solid #333;
+            max-width: 500px; width: 95%; text-align: center; margin-top: 20px;
+            position: relative; z-index: 10;
+        }
+        #click-target {
+            font-size: 100px; width: 180px; height: 180px; margin: 20px auto;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; user-select: none; border-radius: 50%;
+            transition: transform 0.05s; box-shadow: var(--aura-shadow); border: 4px solid var(--aura-color);
+        }
+        #click-target:active { transform: scale(0.85); }
+        .tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+        .tab-btn { flex: 1; padding: 10px; cursor: pointer; background: #333; color: white; border-radius: 10px; border: none; font-weight: bold; }
+        .tab-btn.active { background: #ff00ff; }
+        .shop-container { display: none; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .shop-container.active { display: grid; }
+        .upgrade-btn, .aura-btn {
+            background: #1a1a1a; color: white; border: 1px solid #444;
+            border-radius: 10px; padding: 10px; cursor: pointer; font-size: 0.8rem;
+            display: flex; flex-direction: column; align-items: center; gap: 5px;
+        }
+        .upgrade-btn:disabled, .aura-btn:disabled { opacity: 0.3; cursor: not-allowed; filter: grayscale(1); }
+        .price-tag { color: #ffff00; font-size: 0.9rem; }
+        
+        /* Faíscas Azuis */
+        .spark {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #00f7ff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #00f7ff, 0 0 20px #00f7ff;
+            pointer-events: none;
+            z-index: 5;
+            animation: flicker 0.5s infinite alternate;
+        }
+
+        @keyframes flicker {
+            from { opacity: 0.2; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1.2); }
+        }
+
+        .floating-text {
+            position: absolute; color: #0f0; font-weight: bold; pointer-events: none;
+            animation: floatUp 0.6s forwards; font-size: 1.8rem; text-shadow: 2px 2px #000;
+            z-index: 100;
+        }
+        @keyframes floatUp { to { transform: translateY(-80px); opacity: 0; } }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <h1>BRAINROT CLICKER 💀</h1>
+    <div style="font-size: 2.2rem; color: #ffff00;">Aura Points: <span id="score">0</span></div>
+    <div style="font-size: 0.9rem; color: #0ff; margin-bottom: 10px;">
+        Poder: <span id="display-power">1</span> (Mult: x<span id="display-mult">1</span>)
+    </div>
+
+    <div id="click-target">🚽</div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('upgrades')">Upgrades</button>
+        <button class="tab-btn" onclick="showTab('auras')">Auras</button>
+    </div>
+
+    <div id="shop-upgrades" class="shop-container active">
+        <button class="upgrade-btn" id="btn-sigma" onclick="buy('sigma')">
+            SIGMA (+1 Power)
+            <span class="price-tag">Custo: <span id="c-sigma">15</span></span>
+        </button>
+        <button class="upgrade-btn" id="btn-skibidi" onclick="buy('skibidi')">
+            TOILET (+2/s)
+            <span class="price-tag">Custo: <span id="c-skibidi">50</span></span>
+        </button>
+        <button class="upgrade-btn" style="grid-column: span 2; background: #400;" id="btn-67" onclick="buy('67')">
+            ✨ MELHORAMENTO 67 ✨
+            <span class="price-tag">Custo: <span id="c-67">5000</span></span>
+        </button>
+    </div>
+
+    <div id="shop-auras" class="shop-container">
+        <button class="aura-btn" id="aura-blue" onclick="buyAura('blue', 200)">
+            AURA AZUL (x2)
+            <span class="price-tag">Custo: 200</span>
+        </button>
+        <button class="aura-btn" id="aura-red" onclick="buyAura('red', 1000)">
+            AURA VERMELHA (x5)
+            <span class="price-tag">Custo: 1.000</span>
+        </button>
+        <button class="aura-btn" id="aura-supreme" style="grid-column: span 2; background: linear-gradient(45deg, #f0f, #0ff); color: black;" onclick="buyAura('supreme', 67000)">
+            ✨ AURA SUPREMA 67 (x67) ✨
+            <span class="price-tag">Custo: 67.000</span>
+        </button>
+    </div>
+</div>
+
+<script>
+    let score = 0, basePower = 1, multiplier = 1, passive = 0;
+    let currentTier = -1; 
+    let bgMusic = null;
+    let interactionStarted = false;
+    let supremeActive = false;
+
+    const audioLinks = {
+        0: "https://www.myinstants.com/media/sounds/skibidi-toilet.mp3",
+        1: "https://www.myinstants.com/media/sounds/phonk.mp3", 
+        2: "https://www.myinstants.com/media/sounds/titan-speakerman-thor-sound.mp3" 
+    };
+
+    function startMusic(tier) {
+        if (tier <= currentTier) return;
+        currentTier = tier;
+        if (bgMusic) bgMusic.pause();
+        bgMusic = new Audio(audioLinks[tier]);
+        bgMusic.loop = true;
+        bgMusic.volume = 0.5;
+        if (interactionStarted) bgMusic.play();
+    }
+
+    function buy(id) {
+        let item = { sigma: {c:15, p:1, t:1}, skibidi: {c:50, s:2, t:0}, 67: {c:5000, s:100, t:2} }[id];
+        let costElem = document.getElementById('c-'+id);
+        let cost = parseInt(costElem.innerText);
+        
+        if (score >= cost) {
+            score -= cost;
+            if (item.p) basePower += item.p;
+            if (item.s) passive += item.s;
+            if (item.t > currentTier) startMusic(item.t);
+            costElem.innerText = Math.floor(cost * 1.7);
+            updateUI();
+        }
+    }
+
+    function buyAura(id, cost) {
+        if (score >= cost) {
+            score -= cost;
+            let aurasData = { 
+                blue: {m:2, c:'blue', s:'0 0 30px blue'}, 
+                red: {m:5, c:'red', s:'0 0 30px red'}, 
+                supreme: {m:67, c:'#f0f', s:'0 0 70px #f0f'} 
+            };
+            multiplier = aurasData[id].m;
+            document.documentElement.style.setProperty('--aura-color', aurasData[id].c);
+            document.documentElement.style.setProperty('--aura-shadow', aurasData[id].s);
+            
+            if (id === 'supreme') {
+                activateSupremeMode();
+            }
+            
+            updateUI();
+        }
+    }
+
+    function activateSupremeMode() {
+        supremeActive = true;
+        // Altera o fundo para a imagem enviada
+        document.body.style.backgroundImage = "url('https://files.catbox.moe/k3v3g0.jpg')";
+        
+        // Inicia o efeito de faíscas
+        setInterval(createSpark, 100);
+    }
+
+    function createSpark() {
+        if (!supremeActive) return;
+        const spark = document.createElement('div');
+        spark.className = 'spark';
+        spark.style.left = Math.random() * window.innerWidth + 'px';
+        spark.style.top = Math.random() * window.innerHeight + 'px';
+        document.body.appendChild(spark);
+        
+        // Remove a faísca após um tempo
+        setTimeout(() => {
+            spark.remove();
+        }, 2000);
+    }
+
+    function updateUI() {
+        document.getElementById('score').innerText = Math.floor(score).toLocaleString();
+        document.getElementById('display-power').innerText = Math.floor(basePower * multiplier).toLocaleString();
+        document.getElementById('display-mult').innerText = multiplier;
+        
+        ['sigma','skibidi','67'].forEach(id => {
+            let cost = parseInt(document.getElementById('c-'+id).innerText);
+            document.getElementById('btn-'+id).disabled = score < cost;
+        });
+
+        document.getElementById('aura-blue').disabled = score < 200;
+        document.getElementById('aura-red').disabled = score < 1000;
+        document.getElementById('aura-supreme').disabled = score < 67000;
+    }
+
+    document.getElementById('click-target').addEventListener('click', (e) => {
+        if (!interactionStarted) {
+            interactionStarted = true;
+            startMusic(currentTier === -1 ? 0 : currentTier);
+        }
+        
+        let total = basePower * multiplier;
+        score += total;
+
+        let txt = document.createElement('div');
+        txt.className = 'floating-text';
+        txt.innerText = `+${total.toLocaleString()}`;
+        txt.style.left = e.clientX + 'px';
+        txt.style.top = e.clientY + 'px';
+        document.body.appendChild(txt);
+        setTimeout(() => txt.remove(), 600);
+        
+        updateUI();
+    });
+
+    setInterval(() => { if (passive > 0) { score += passive; updateUI(); } }, 1000);
+
+    function showTab(t) {
+        document.querySelectorAll('.shop-container').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('shop-'+t).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+</script>
+</body>
+</html>
